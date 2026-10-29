@@ -936,7 +936,7 @@ var BOOT = (function () {
         (x.reason ? '<div style="grid-column:1/-1"><small>Why it needs review</small><b>' + esc(x.reason) + '</b></div>' : '') +
         '</div><pre>' + esc(x.subject || '') + '</pre><pre>' + esc(x.body || 'Email body not stored.') + '</pre>' +
         '<p class="note">Clearance received is the email arrival time, not a confirmed recovery time. Start time is the original occurrence from the alarm.</p>';
-      if (ME.role === 'admin' && (x.category === 'Unknown' || x.customRule) && x.rawAlarm) html += '<button class="btn-s dark" id="editCls" style="margin-top:10px">Edit classification</button>';
+      if (ME.role === 'admin' && ((x.category === 'Unknown' && x.reason === 'Unrecognized alarm type') || x.customRule) && x.rawAlarm) html += '<button class="btn-s dark" id="editCls" style="margin-top:10px">Edit classification</button>';
       if (S.back) html = '<button class="btn-s" id="mdBack" style="margin-top:10px">← Back to site</button>' + html;
       $('mdBody').innerHTML = html;
       if ($('editCls')) $('editCls').onclick = function () { ruleForm(x); };
