@@ -529,6 +529,8 @@ var BOOT = (function () {
   var base = {parse: parse, paste: true};
   if (!u) return Object.assign(base, {ok: false, msg: given ? 'This is not a complete Signal link. Paste the personal link you received:' :
     'Paste your personal Signal link once on this device:'});
+  // keep the link in the address: iPhone "Add to Home Screen" saves this address, and the icon has its own storage
+  try { if (parse(given) !== u) history.replaceState(null, '', location.pathname + location.search + '#u=' + encodeURIComponent(u)); } catch (e) {}
   var exec = u.split('?')[0];
   // the plain /macros/ address needs no Google sign-in; the company (/a/macros/<domain>/) form is the fallback
   return Object.assign(base, {ok: true, key: u.split('?k=')[1], name: '', role: '', api: exec.replace(/\/a\/macros\/[^\/]+\//, '/macros/'), apis: [exec]});
