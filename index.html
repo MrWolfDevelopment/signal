@@ -202,6 +202,10 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f6f8fb;border-radius
 .locked{position:fixed;inset:0;background:var(--navy);display:grid;place-items:center;padding:20px;z-index:80;color:#c9d3e6;text-align:center}
 .locked .brand b{font-size:38px}
 .locked p{max-width:360px;line-height:1.7;margin:16px auto 0}
+.lockform{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:420px;margin:16px auto 0}
+.lockform input{flex:1 1 240px;min-width:0;border:1px solid #2c4170;background:#13264a;color:#fff;border-radius:7px;padding:10px 12px}
+.lockform input::placeholder{color:#8696b5}
+.lockform small{flex-basis:100%;min-height:1em;color:#ffb27a;font-size:12.5px}
 
 /* ---------- responsive ---------- */
 @media (min-width:1600px){.cards{grid-template-columns:repeat(4,minmax(0,1fr))}}
@@ -380,6 +384,7 @@ body{font-size:var(--fs-md);line-height:1.45;background:#f3f5f9}
   <div>
     <div class="brand"><i class="logo" aria-hidden="true"></i><div><b>SI<span>G</span>NAL</b><small>NETWORK OPERATIONS</small></div></div>
     <p id="lockedMsg">This link is not active. Ask your admin for your personal Signal link.</p>
+    <form class="lockform" id="lockForm" hidden><input id="lockLink" placeholder="Paste your Signal link here" autocomplete="off" spellcheck="false"><button class="btn-or" type="submit">Open Signal</button><small id="lockErr"></small></form>
   </div>
 </div>
 
@@ -509,16 +514,24 @@ body{font-size:var(--fs-md);line-height:1.45;background:#f3f5f9}
 
 <script>
 var BOOT = (function () {
-  // Personal link arrives as  …/#u=<…/exec?k=KEY>  (home-screen link) and is remembered on this device.
-  var OK = /^https:\/\/script\.google\.com\/(?:a\/macros\/[^\/?#]+|macros)\/s\/[\w-]+\/exec\?k=[a-f0-9]{40}$/;
-  var u = '', m = location.hash.match(/[#&]u=([^&]+)/);
-  try { if (m) u = decodeURIComponent(m[1]); } catch (e) {}
-  if (u && OK.test(u)) { try { localStorage.setItem('signal.link', u); } catch (e) {} }
-  else { u = ''; try { u = localStorage.getItem('signal.link') || ''; } catch (e) {} if (!OK.test(u)) u = ''; }
-  if (!u) return {ok: false, msg: 'Open your personal Signal link once on this device (ask your admin for it).'};
+  // Finds the personal Signal link in any text: the home-screen link (#u=…), the Google link itself,
+  // a link Google rewrote for a second account (/u/1/), extra parameters (&authuser=1) or text around it.
+  function parse(t) {
+    t = String(t || '');
+    for (var i = 0; i < 3 && /%[0-9a-f]{2}/i.test(t); i++) { try { t = decodeURIComponent(t); } catch (e) { break; } }
+    t = t.replace(/\/u\/\d+(?=\/)/g, '');
+    var m = t.match(/https:\/\/script\.google\.com\/(a\/macros\/[^\/?#\s]+|macros)\/s\/([\w-]+)\/exec\?(?:[^#\s]*&)?k=([a-f0-9]{40})(?![a-f0-9])/i);
+    return m ? 'https://script.google.com/' + m[1] + '/s/' + m[2] + '/exec?k=' + m[3].toLowerCase() : '';
+  }
+  var given = location.hash.replace(/^#/, ''), u = parse(given);
+  if (u) { try { localStorage.setItem('signal.link', u); } catch (e) {} }
+  else { try { u = parse(localStorage.getItem('signal.link')); } catch (e) {} }
+  var base = {parse: parse, paste: true};
+  if (!u) return Object.assign(base, {ok: false, msg: given ? 'This is not a complete Signal link. Paste the personal link you received:' :
+    'Paste your personal Signal link once on this device:'});
   var exec = u.split('?')[0];
   // the plain /macros/ address needs no Google sign-in; the company (/a/macros/<domain>/) form is the fallback
-  return {ok: true, key: u.split('?k=')[1], name: '', role: '', api: exec.replace(/\/a\/macros\/[^\/]+\//, '/macros/'), apis: [exec]};
+  return Object.assign(base, {ok: true, key: u.split('?k=')[1], name: '', role: '', api: exec.replace(/\/a\/macros\/[^\/]+\//, '/macros/'), apis: [exec]});
 })();
 </script>
 <script>
@@ -561,7 +574,17 @@ var BOOT = (function () {
     var t = $('toast'); t.textContent = msg; t.className = 'toast' + (err ? ' err' : ''); t.hidden = false;
     clearTimeout(toast.h); toast.h = setTimeout(function () { t.hidden = true; }, err ? 7000 : 3500);
   }
-  function lock(msg) { $('app').hidden = true; $('locked').hidden = false; if (msg) $('lockedMsg').textContent = msg; }
+  function lock(msg) {
+    $('app').hidden = true; $('locked').hidden = false; if (msg) $('lockedMsg').textContent = msg;
+    $('lockForm').hidden = !BOOT.paste; // Signal home page: paste a (new) personal link here
+  }
+  if (BOOT.paste) $('lockForm').onsubmit = function (e) {
+    e.preventDefault();
+    var u = BOOT.parse($('lockLink').value);
+    if (!u) { $('lockErr').textContent = 'That is not a Signal link. Copy the whole link you received and paste it again.'; return; }
+    try { localStorage.setItem('signal.link', u); } catch (x) {}
+    location.hash = 'u=' + encodeURIComponent(u); location.reload();
+  };
 
   /* ---------- time formatting (Cairo) ---------- */
   var fDT = new Intl.DateTimeFormat('en-GB', {timeZone: 'Africa/Cairo', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'});
